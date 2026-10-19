@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>File Details</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { overflow: auto; background: var(--color-bg); }
+    .detail-container {
+      padding: 28px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .detail-file-icon {
+      font-size: 48px;
+      flex-shrink: 0;
+    }
+    .detail-file-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--color-text);
+      word-break: break-all;
+      letter-spacing: -0.3px;
+    }
+    .detail-category {
+      margin-top: 4px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .detail-field {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+    .detail-field-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--color-text-muted);
+      margin-bottom: 4px;
+    }
+    .detail-field-value {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--color-text);
+      word-break: break-all;
+    }
+    .detail-path-field {
+      grid-column: 1 / -1;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="detail-container">
+  <div class="detail-header">
+    <div class="detail-file-icon" id="detail-icon">📄</div>
+    <div>
+      <div class="detail-file-name" id="detail-name">—</div>
+      <div class="detail-category">
+        <span class="category-tag" id="detail-category-tag">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-grid">
+    <div class="detail-field">
+      <div class="detail-field-label">Size</div>
+      <div class="detail-field-value" id="detail-size">—</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-field-label">Extension</div>
+      <div class="detail-field-value" id="detail-ext">—</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-field-label">Modified</div>
+      <div class="detail-field-value" id="detail-modified">—</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-field-label">Created</div>
+      <div class="detail-field-value" id="detail-created">—</div>
+    </div>
+    <div class="detail-field detail-path-field">
+      <div class="detail-field-label">Full Path</div>
+      <div class="detail-field-value" id="detail-path">—</div>
+    </div>
+  </div>
+
+  <div class="detail-actions">
+    <button class="btn btn-primary" id="btn-open-file">🚀 Open File</button>
+    <button class="btn btn-secondary" id="btn-reveal-file">📂 Show in Finder</button>
+  </div>
+</div>
+
+<script>
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function getFileIcon(category, ext) {
+    const icons = {
+      documents: '📋', images: '🖼️', videos: '🎬',
+      audio: '🎵', archives: '🗜️', other: '📦'
+    };
+    return icons[category] || '📄';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString();
+  }
+
+  let currentFilePath = null;
+
+  window.detailAPI.onFileData((file) => {
+    if (!file) return;
+    currentFilePath = file.path;
+
+    document.getElementById('detail-icon').textContent = getFileIcon(file.category, file.ext);
+    document.getElementById('detail-name').textContent = file.name || '—';
+    document.getElementById('detail-size').textContent = formatBytes(file.size);
+    document.getElementById('detail-ext').textContent = file.ext ? '.' + file.ext.toUpperCase() : '—';
+    document.getElementById('detail-modified').textContent = formatDate(file.modified);
+    document.getElementById('detail-created').textContent = formatDate(file.created);
+    document.getElementById('detail-path').textContent = file.path || '—';
+
+    const tag = document.getElementById('detail-category-tag');
+    const categoryLabels = {
+      documents: 'Documents', images: 'Images', videos: 'Videos',
+      audio: 'Audio', archives: 'Archives', other: 'Other'
+    };
+    tag.textContent = categoryLabels[file.category] || 'Unknown';
+    tag.className = 'category-tag tag-' + (file.category || 'other');
+
+    document.title = 'File Details — ' + file.name;
+  });
+
+  document.getElementById('btn-open-file').addEventListener('click', async () => {
+    if (currentFilePath) await window.detailAPI.openFile(currentFilePath);
+  });
+
+  document.getElementById('btn-reveal-file').addEventListener('click', async () => {
+    if (currentFilePath) await window.detailAPI.revealFile(currentFilePath);
+  });
+</script>
+</body>
+</html>

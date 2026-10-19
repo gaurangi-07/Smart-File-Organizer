@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Smart File Organizer — Organize your files intelligently on the desktop" />
+  <title>Smart File Organizer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════════ SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">📂</div>
+      <div class="sidebar-logo-text">
+        <strong>Smart File</strong>
+        <span>Organizer</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">🏠</span> Dashboard
+      </div>
+
+      <div class="nav-section-label">Browse Files</div>
+      <div class="nav-item" data-view="all-files">
+        <span class="nav-icon">📄</span> All Files
+        <span class="nav-badge" id="badge-all">0</span>
+      </div>
+      <div class="nav-item" data-view="documents">
+        <span class="nav-icon">📋</span> Documents
+        <span class="nav-badge" id="badge-documents">0</span>
+      </div>
+      <div class="nav-item" data-view="images">
+        <span class="nav-icon">🖼️</span> Images
+        <span class="nav-badge" id="badge-images">0</span>
+      </div>
+      <div class="nav-item" data-view="videos">
+        <span class="nav-icon">🎬</span> Videos
+        <span class="nav-badge" id="badge-videos">0</span>
+      </div>
+      <div class="nav-item" data-view="audio">
+        <span class="nav-icon">🎵</span> Audio
+        <span class="nav-badge" id="badge-audio">0</span>
+      </div>
+      <div class="nav-item" data-view="archives">
+        <span class="nav-icon">🗜️</span> Archives
+        <span class="nav-badge" id="badge-archives">0</span>
+      </div>
+      <div class="nav-item" data-view="other">
+        <span class="nav-icon">📦</span> Other Files
+        <span class="nav-badge" id="badge-other">0</span>
+      </div>
+
+      <div class="nav-section-label">Tools</div>
+      <div class="nav-item" data-view="duplicates">
+        <span class="nav-icon">🔍</span> Duplicate Files
+      </div>
+
+      <div class="nav-section-label">System</div>
+      <div class="nav-item" data-view="activity-log">
+        <span class="nav-icon">📜</span> Activity Log
+      </div>
+      <div class="nav-item" data-view="settings">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════ MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <div class="folder-badge" id="folder-badge">
+          <span class="folder-icon">📁</span>
+          <span id="folder-badge-text">No folder selected</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Container -->
+    <div class="view-container">
+
+      <!-- ──────────────────────────────────── DASHBOARD VIEW -->
+      <div class="view active" id="view-dashboard">
+
+        <!-- Hero -->
+        <div class="dashboard-hero">
+          <div class="hero-content">
+            <div class="hero-greeting">👋 Welcome to Smart File Organizer</div>
+            <div class="hero-description">
+              Select a folder to scan and organize your files into neat categories.
+              Find duplicates, search your files, and keep your storage tidy.
+            </div>
+            <div class="hero-actions">
+              <button class="btn btn-hero active" id="btn-choose-folder">
+                📁 Choose Folder
+              </button>
+              <button class="btn btn-hero" id="btn-scan-hero" disabled>
+                🔍 Scan Files
+              </button>
+              <button class="btn btn-hero" id="btn-organize-hero" disabled>
+                ✨ Organize Files
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue">📄</div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-total-files">0</div>
+              <div class="stat-label">Total Files</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">💾</div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-total-size">0 B</div>
+              <div class="stat-label">Storage Used</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">🔄</div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-duplicates">—</div>
+              <div class="stat-label">Duplicate Groups</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple">✅</div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-organized">0</div>
+              <div class="stat-label">Files Organized</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage chart + Recent Activity -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">📊 Storage by Category</div>
+                <div class="card-subtitle">File count in selected folder</div>
+              </div>
+            </div>
+            <div class="storage-chart" id="storage-chart">
+              <div class="empty-state" style="padding:20px 0">
+                <div class="empty-icon">📂</div>
+                <div class="empty-title">No data yet</div>
+                <div class="empty-desc">Select and scan a folder to see breakdown</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🕐 Recent Activity</div>
+            </div>
+            <div class="recent-activity-list" id="recent-activity-list">
+              <div class="empty-state" style="padding:20px 0">
+                <div class="empty-icon">📜</div>
+                <div class="empty-desc">No recent activity</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- END DASHBOARD -->
+
+      <!-- ──────────────────────────────────── FILE LIST VIEW (shared) -->
+      <div class="view" id="view-all-files">
+        <div class="search-row">
+          <div class="search-wrap">
+            <span class="search-icon">🔎</span>
+            <input type="text" class="search-input" id="search-input-files" placeholder="Search files by name…" />
+          </div>
+          <select class="sort-select" id="sort-select-files">
+            <option value="name-asc">Name A→Z</option>
+            <option value="name-desc">Name Z→A</option>
+            <option value="size-desc">Largest First</option>
+            <option value="size-asc">Smallest First</option>
+            <option value="modified-desc">Newest First</option>
+            <option value="modified-asc">Oldest First</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-files">🔄 Refresh</button>
+        </div>
+
+        <!-- Category chips (only shown in all-files view) -->
+        <div class="category-chips" id="category-chips">
+          <div class="category-chip active" data-category="all">All</div>
+          <div class="category-chip" data-category="documents">📋 Documents</div>
+          <div class="category-chip" data-category="images">🖼️ Images</div>
+          <div class="category-chip" data-category="videos">🎬 Videos</div>
+          <div class="category-chip" data-category="audio">🎵 Audio</div>
+          <div class="category-chip" data-category="archives">🗜️ Archives</div>
+          <div class="category-chip" data-category="other">📦 Other</div>
+        </div>
+
+        <div class="file-table-wrap" id="file-table-wrap">
+          <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">No folder scanned yet</div>
+            <div class="empty-desc">Go to Dashboard and select a folder, then click "Scan Files".</div>
+          </div>
+        </div>
+      </div>
+      <!-- END FILE LIST VIEW -->
+
+      <!-- ──────────────────────────── CATEGORY VIEWS (documents, images, etc.) -->
+      <div class="view" id="view-documents" data-category-view="documents"></div>
+      <div class="view" id="view-images"    data-category-view="images"></div>
+      <div class="view" id="view-videos"    data-category-view="videos"></div>
+      <div class="view" id="view-audio"     data-category-view="audio"></div>
+      <div class="view" id="view-archives"  data-category-view="archives"></div>
+      <div class="view" id="view-other"     data-category-view="other"></div>
+
+      <!-- ──────────────────────────────────── DUPLICATES VIEW -->
+      <div class="view" id="view-duplicates">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--color-text);letter-spacing:-0.4px">🔍 Duplicate Files</h2>
+            <p style="font-size:13px;color:var(--color-text-muted);margin-top:4px">Files with identical content (detected by hash). Select files to delete.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="btn btn-secondary" id="btn-scan-duplicates" disabled>
+              🔍 Scan for Duplicates
+            </button>
+            <button class="btn btn-danger" id="btn-delete-selected" disabled>
+              🗑️ Delete Selected
+            </button>
+          </div>
+        </div>
+
+        <div id="dup-content">
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-title">No scan performed</div>
+            <div class="empty-desc">Select a folder on the Dashboard, then click "Scan for Duplicates".</div>
+          </div>
+        </div>
+      </div>
+      <!-- END DUPLICATES VIEW -->
+
+      <!-- ──────────────────────────────────── ACTIVITY LOG VIEW -->
+      <div class="view" id="view-activity-log">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--color-text);letter-spacing:-0.4px">📜 Activity Log</h2>
+            <p style="font-size:13px;color:var(--color-text-muted);margin-top:4px">A history of all file operations, scans, and errors.</p>
+          </div>
+          <button class="btn btn-danger btn-sm" id="btn-clear-logs">🗑️ Clear Log</button>
+        </div>
+        <div id="log-content">
+          <div class="empty-state">
+            <div class="empty-icon">📜</div>
+            <div class="empty-title">No activity yet</div>
+            <div class="empty-desc">Activity is recorded automatically when you scan, organize, or delete files.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ──────────────────────────────────── SETTINGS VIEW -->
+      <div class="view" id="view-settings">
+        <h2 style="font-size:20px;font-weight:800;color:var(--color-text);letter-spacing:-0.4px;margin-bottom:20px">⚙️ Settings</h2>
+
+        <div class="settings-section">
+          <div class="settings-section-title">📁 Default Folder</div>
+          <div class="settings-folder-row">
+            <div class="settings-folder-path" id="settings-default-folder">Not set</div>
+            <button class="btn btn-secondary btn-sm" id="btn-settings-choose-folder">Browse…</button>
+            <button class="btn btn-ghost btn-sm" id="btn-settings-clear-folder">Clear</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">🔔 Notifications &amp; Behavior</div>
+
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>Desktop Notifications</strong>
+              <span>Show a notification when scan or organize completes</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="setting-notifications" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>Preview Before Organizing</strong>
+              <span>Show a preview of file moves before applying them</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="setting-preview" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">🗑️ Data Management</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <strong>Clear Activity History</strong>
+              <span>Remove all entries from the activity log</span>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btn-settings-clear-history">Clear History</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button class="btn btn-primary" id="btn-save-settings">💾 Save Settings</button>
+        </div>
+      </div>
+      <!-- END SETTINGS VIEW -->
+
+    </div><!-- end view-container -->
+  </div><!-- end main-content -->
+</div><!-- end app -->
+
+<!-- ═══════════════════════════════════════════════════════ MODALS -->
+
+<!-- Organize Preview Modal -->
+<div class="modal-overlay" id="modal-organize">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">✨ Organize Preview</div>
+        <div class="modal-subtitle">Review the proposed file moves before confirming.</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="preview-list" id="preview-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-cancel-organize">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-organize">✅ Confirm & Move Files</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">🗑️ Delete Files</div>
+        <div class="modal-subtitle" id="modal-delete-subtitle">Are you sure you want to delete these files?</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="preview-list" id="delete-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-cancel-delete">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-delete">🗑️ Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-confirm-title">Confirm Action</div>
+        <div class="modal-subtitle" id="modal-confirm-subtitle"></div>
+      </div>
+    </div>
+    <div class="modal-body" style="margin-bottom:0">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-confirm-no">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

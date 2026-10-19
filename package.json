@@ -1,0 +1,16 @@
+{
+  "name": "smart-file-organizer",
+  "version": "1.0.0",
+  "description": "A smart desktop file organizer built with Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --inspect"
+  },
+  "keywords": ["electron", "file-organizer", "desktop"],
+  "author": "Smart File Organizer",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0"
+  }
+}
