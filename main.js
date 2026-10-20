@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -81,6 +81,15 @@ function createDetailWindow(fileData) {
 // ─── App Lifecycle ───────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Grant camera permission for getUserMedia in renderer
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
   createMainWindow();
 
   app.on('activate', () => {
