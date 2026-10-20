@@ -106,6 +106,9 @@
               <button class="btn btn-hero" id="btn-scan-hero" disabled>
                 🔍 Scan Files
               </button>
+              <button class="btn btn-hero" id="btn-camera-hero">
+                📸 Scan with Camera
+              </button>
               <button class="btn btn-hero" id="btn-organize-hero" disabled>
                 ✨ Organize Files
               </button>
@@ -385,6 +388,70 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" id="btn-confirm-no">Cancel</button>
       <button class="btn btn-danger" id="btn-confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Capture Modal -->
+<div class="modal-overlay" id="modal-camera">
+  <div class="modal camera-modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📸 Scan with Camera</div>
+        <div class="modal-subtitle" id="camera-status-text">Requesting camera access…</div>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="btn-camera-close" title="Close camera">✕</button>
+    </div>
+    <div class="modal-body camera-modal-body">
+      <!-- Camera Error State -->
+      <div class="camera-error-state" id="camera-error-state" style="display:none">
+        <div class="empty-state">
+          <div class="empty-icon">🚫</div>
+          <div class="empty-title" id="camera-error-title">Camera Unavailable</div>
+          <div class="empty-desc" id="camera-error-desc">Could not access the camera. Please check permissions.</div>
+          <button class="btn btn-primary" id="btn-camera-retry" style="margin-top:16px">🔄 Retry</button>
+        </div>
+      </div>
+
+      <!-- Live Preview -->
+      <div class="camera-preview-area" id="camera-preview-area">
+        <video id="camera-video" autoplay playsinline></video>
+        <canvas id="camera-canvas" style="display:none"></canvas>
+      </div>
+
+      <!-- Captured Photo Preview -->
+      <div class="camera-captured-area" id="camera-captured-area" style="display:none">
+        <img id="camera-captured-img" alt="Captured photo" />
+      </div>
+
+      <!-- Save Options (shown after capture) -->
+      <div class="camera-save-options" id="camera-save-options" style="display:none">
+        <div class="camera-save-row">
+          <label class="camera-save-label" for="camera-filename">Filename</label>
+          <input type="text" class="search-input" id="camera-filename" placeholder="scan_001.jpg" />
+        </div>
+        <div class="camera-save-row">
+          <label class="camera-save-label">Save to</label>
+          <div style="display:flex;gap:8px;flex:1;align-items:center">
+            <div class="settings-folder-path" id="camera-save-folder" style="flex:1">No folder selected</div>
+            <button class="btn btn-secondary btn-sm" id="btn-camera-choose-folder">📁 Browse</button>
+          </div>
+        </div>
+        <div class="camera-save-row" style="gap:4px">
+          <label class="camera-save-label">Format</label>
+          <select class="sort-select" id="camera-format">
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/png">PNG</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer camera-modal-footer">
+      <button class="btn btn-secondary" id="btn-camera-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-camera-capture">📸 Capture Photo</button>
+      <button class="btn btn-secondary" id="btn-camera-retake" style="display:none">🔄 Retake</button>
+      <button class="btn btn-primary" id="btn-camera-save" style="display:none">💾 Save Image</button>
     </div>
   </div>
 </div>
