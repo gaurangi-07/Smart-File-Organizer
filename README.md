@@ -1,6 +1,6 @@
 # Smart File Organizer
 
-A polished Electron desktop application that helps you scan, categorize, organize, search, and manage files in any folder — with duplicate detection, storage statistics, persistent activity logs, and a secure IPC architecture.
+A polished Electron desktop application that helps you scan, categorize, organize, search, and manage files in any folder — with camera scanning, duplicate detection, storage statistics, persistent activity logs, and a secure IPC architecture.
 
 ---
 
@@ -10,6 +10,7 @@ A polished Electron desktop application that helps you scan, categorize, organiz
 |---|---|
 | 📁 Folder Selection | Native OS directory picker |
 | 🔍 File Scanning | Scans files, reads metadata, categorizes by extension |
+| 📸 Camera & Scan | Capture documents/images with device camera and save to folder |
 | ✨ File Organization | Preview proposed moves, confirm before executing |
 | 🔎 Duplicate Detection | MD5 hash-based content comparison, streaming for large files |
 | 📊 Storage Stats | File counts and sizes by category, visual bar chart |
@@ -27,6 +28,7 @@ A polished Electron desktop application that helps you scan, categorize, organiz
 ### Prerequisites
 - Node.js 16+ and npm
 - macOS / Windows / Linux
+- A webcam or built-in camera (for Camera & Scan feature)
 
 ### Steps
 
@@ -49,8 +51,8 @@ npm start
 file_organizer/
 ├── main.js              # Electron main process
 │                        #   - Window lifecycle (main + detail windows)
-│                        #   - All IPC handlers
-│                        #   - Native dialogs & notifications
+│                        #   - All IPC handlers (including save-captured-image)
+│                        #   - Native dialogs, notifications, camera permissions
 │                        #   - Path validation
 ├── preload.js           # Secure contextBridge API for main window
 ├── detail-preload.js    # Secure contextBridge API for detail window
@@ -61,9 +63,9 @@ file_organizer/
 │   ├── fileOrganizer.js     # Builds move plan, handles name collisions, executes
 │   └── storage.js           # JSON persistence (settings + activity log)
 │
-├── index.html           # Main window UI shell
-├── styles.css           # Design system: tokens, layout, components
-├── renderer.js          # All frontend logic (no Node.js access)
+├── index.html           # Main window UI shell (includes camera modal)
+├── styles.css           # Design system: tokens, layout, components, camera UI
+├── renderer.js          # All frontend logic including camera module (no Node.js access)
 │
 └── detail-window.html   # Secondary window for file details
 ```
@@ -77,9 +79,41 @@ Renderer → window.electronAPI.scanFolder(path)
          → IPC: 'scan-folder'
          → Main: validates path, calls fileScanner.scan()
          → returns { success, files[] }
+
+Renderer → window.electronAPI.saveCapturedImage({ dataUrl, filename, destFolder })
+         → IPC: 'save-captured-image'
+         → Main: validates inputs, sanitizes filename, writes buffer
+         → returns { success, savedPath, savedName }
 ```
 
 No raw `fs`, `path`, or Node.js APIs are accessible from the renderer.
+
+---
+
+## Camera & Scan
+
+The Camera & Scan feature lets you capture documents or images directly from the app:
+
+1. Click **"📸 Scan with Camera"** on the Dashboard
+2. Grant camera permission when prompted
+3. Position your document in the live preview
+4. Click **"📸 Capture Photo"** — a flash animation confirms capture
+5. Review the photo, enter a filename, and choose a save folder
+6. Click **"💾 Save Image"** to save the file
+7. Use **"🔄 Retake"** to try again, or **"Cancel"** to close
+
+### Camera Details
+- Uses `navigator.mediaDevices.getUserMedia()` (browser API, no dependencies)
+- Supports JPEG and PNG format selection
+- Default filename: `scan_YYYY-MM-DD_HH-MM-SS.jpg`
+- Automatic unique filename generation prevents overwrites
+- Camera stream is released on close, cancel, save, or capture
+- Permission denied and no-camera errors show clear messages with retry
+
+### Platform Notes
+- **macOS**: Camera permission must be granted in System Settings → Privacy & Security → Camera
+- **Windows/Linux**: Camera permission is handled by Electron automatically
+- If no camera is detected, an error state with retry option is shown
 
 ---
 
@@ -109,8 +143,10 @@ Data is stored in Electron's `app.getPath('userData')` directory:
 - `contextIsolation: true` — renderer and Node.js contexts are isolated
 - `nodeIntegration: false` — renderer cannot access Node.js APIs directly
 - `sandbox: false` — required for preload scripts on Electron 27+
-- All IPC inputs (file paths, arrays) are validated in the main process
+- All IPC inputs (file paths, arrays, base64 data) are validated in the main process
+- Filenames are sanitized to remove dangerous characters before writing
 - Only named, purpose-specific operations are exposed via `contextBridge`
+- Camera permission is explicitly granted via `session.setPermissionRequestHandler`
 - Shell operations use Electron's safe `shell.openPath` / `shell.showItemInFolder`
 
 ---
@@ -119,11 +155,12 @@ Data is stored in Electron's `app.getPath('userData')` directory:
 
 1. **Select a Folder** — Click "Choose Folder" on the Dashboard
 2. **Scan** — Click "Scan Files" to read all files and build the file list
-3. **Browse** — Use the sidebar to view files by category, or "All Files" with search/sort
-4. **Organize** — Click "Organize Files" to preview proposed moves, then confirm
-5. **Find Duplicates** — Navigate to "Duplicate Files", click "Scan for Duplicates", select files to delete and confirm
-6. **View History** — Check "Activity Log" for a record of all operations
-7. **Settings** — Configure default folder, notifications, and preview behavior
+3. **Camera Scan** — Click "Scan with Camera" to capture a document and save it
+4. **Browse** — Use the sidebar to view files by category, or "All Files" with search/sort
+5. **Organize** — Click "Organize Files" to preview proposed moves, then confirm
+6. **Find Duplicates** — Navigate to "Duplicate Files", click "Scan for Duplicates", select files to delete and confirm
+7. **View History** — Check "Activity Log" for a record of all operations
+8. **Settings** — Configure default folder, notifications, and preview behavior
 
 ---
 
@@ -132,4 +169,5 @@ Data is stored in Electron's `app.getPath('userData')` directory:
 - Organization creates category subfolders **inside the selected folder only**
 - Files are never moved or deleted without explicit user confirmation
 - Duplicate detection compares **file content** (not filenames) using MD5 hashes
+- Camera images are saved as standard JPEG/PNG files
 - The app handles permission errors, missing files, and empty folders gracefully
