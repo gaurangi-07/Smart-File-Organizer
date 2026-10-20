@@ -1002,6 +1002,224 @@ els.btnSettingsClearHistory.addEventListener('click', async () => {
   showToast('Activity history cleared.', 'success');
 });
 
+// ─── Camera & Scan ────────────────────────────────────────────────────────────
+
+const camEls = {
+  modal:          $('modal-camera'),
+  statusText:     $('camera-status-text'),
+  errorState:     $('camera-error-state'),
+  errorTitle:     $('camera-error-title'),
+  errorDesc:      $('camera-error-desc'),
+  previewArea:    $('camera-preview-area'),
+  capturedArea:   $('camera-captured-area'),
+  capturedImg:    $('camera-captured-img'),
+  video:          $('camera-video'),
+  canvas:         $('camera-canvas'),
+  saveOptions:    $('camera-save-options'),
+  filenameInput:  $('camera-filename'),
+  saveFolder:     $('camera-save-folder'),
+  formatSelect:   $('camera-format'),
+  btnCapture:     $('btn-camera-capture'),
+  btnRetake:      $('btn-camera-retake'),
+  btnSave:        $('btn-camera-save'),
+  btnCancel:      $('btn-camera-cancel'),
+  btnClose:       $('btn-camera-close'),
+  btnChooseFolder:$('btn-camera-choose-folder'),
+  btnRetry:       $('btn-camera-retry'),
+};
+
+let cameraStream = null;
+let capturedDataUrl = null;
+let cameraSaveFolder = null;
+
+function generateDefaultFilename() {
+  const now = new Date();
+  const d = now.toISOString().slice(0, 10);
+  const t = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+  const ext = camEls.formatSelect.value === 'image/png' ? '.png' : '.jpg';
+  return 'scan_' + d + '_' + t + ext;
+}
+
+async function openCamera() {
+  capturedDataUrl = null;
+  cameraSaveFolder = state.currentFolder || null;
+  camEls.previewArea.style.display = 'flex';
+  camEls.capturedArea.style.display = 'none';
+  camEls.saveOptions.style.display = 'none';
+  camEls.errorState.style.display = 'none';
+  camEls.btnCapture.style.display = '';
+  camEls.btnRetake.style.display = 'none';
+  camEls.btnSave.style.display = 'none';
+  camEls.btnCapture.disabled = true;
+  camEls.statusText.textContent = 'Requesting camera access\u2026';
+  camEls.saveFolder.textContent = cameraSaveFolder || 'No folder selected';
+  camEls.filenameInput.value = generateDefaultFilename();
+  showModal(camEls.modal);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' },
+      audio: false,
+    });
+    cameraStream = stream;
+    camEls.video.srcObject = stream;
+    await new Promise(function(resolve, reject) {
+      camEls.video.onloadedmetadata = function() { camEls.video.play(); resolve(); };
+      setTimeout(function() { reject(new Error('Camera took too long to start')); }, 8000);
+    });
+    camEls.statusText.textContent = 'Camera ready \u2014 position your document and capture.';
+    camEls.btnCapture.disabled = false;
+  } catch (err) {
+    showCameraError(err);
+  }
+}
+
+function showCameraError(err) {
+  console.error('Camera error:', err);
+  camEls.previewArea.style.display = 'none';
+  camEls.errorState.style.display = 'block';
+  camEls.btnCapture.style.display = 'none';
+  if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+    camEls.errorTitle.textContent = 'Camera Permission Denied';
+    camEls.errorDesc.textContent = 'Please allow camera access in your system settings and try again.';
+  } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+    camEls.errorTitle.textContent = 'No Camera Found';
+    camEls.errorDesc.textContent = 'No camera device was detected. Please connect a camera and try again.';
+  } else {
+    camEls.errorTitle.textContent = 'Camera Unavailable';
+    camEls.errorDesc.textContent = err.message || 'An unknown error occurred while accessing the camera.';
+  }
+  camEls.statusText.textContent = 'Camera error \u2014 see details below.';
+}
+
+function stopCameraStream() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(function(track) { track.stop(); });
+    cameraStream = null;
+  }
+  camEls.video.srcObject = null;
+}
+
+function closeCamera() {
+  stopCameraStream();
+  capturedDataUrl = null;
+  hideModal(camEls.modal);
+}
+
+function capturePhoto() {
+  if (!cameraStream) return;
+  var video = camEls.video;
+  var canvas = camEls.canvas;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Flash effect
+  var flash = document.createElement('div');
+  flash.className = 'camera-flash';
+  camEls.previewArea.appendChild(flash);
+  setTimeout(function() { flash.remove(); }, 400);
+  var format = camEls.formatSelect.value;
+  var quality = format === 'image/jpeg' ? 0.92 : undefined;
+  capturedDataUrl = canvas.toDataURL(format, quality);
+  stopCameraStream();
+  camEls.capturedImg.src = capturedDataUrl;
+  camEls.previewArea.style.display = 'none';
+  camEls.capturedArea.style.display = 'flex';
+  camEls.saveOptions.style.display = 'flex';
+  camEls.btnCapture.style.display = 'none';
+  camEls.btnRetake.style.display = '';
+  camEls.btnSave.style.display = '';
+  var ext = format === 'image/png' ? '.png' : '.jpg';
+  var fname = camEls.filenameInput.value;
+  fname = fname.replace(/\.\w+$/, ext);
+  camEls.filenameInput.value = fname;
+  camEls.statusText.textContent = 'Photo captured! Enter a filename and choose where to save.';
+}
+
+async function retakePhoto() {
+  capturedDataUrl = null;
+  camEls.capturedArea.style.display = 'none';
+  camEls.saveOptions.style.display = 'none';
+  camEls.previewArea.style.display = 'flex';
+  camEls.btnCapture.style.display = '';
+  camEls.btnRetake.style.display = 'none';
+  camEls.btnSave.style.display = 'none';
+  camEls.btnCapture.disabled = true;
+  camEls.statusText.textContent = 'Restarting camera\u2026';
+  camEls.filenameInput.value = generateDefaultFilename();
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' },
+      audio: false,
+    });
+    cameraStream = stream;
+    camEls.video.srcObject = stream;
+    await new Promise(function(resolve, reject) {
+      camEls.video.onloadedmetadata = function() { camEls.video.play(); resolve(); };
+      setTimeout(function() { reject(new Error('Camera took too long to restart')); }, 8000);
+    });
+    camEls.statusText.textContent = 'Camera ready \u2014 position your document and capture.';
+    camEls.btnCapture.disabled = false;
+  } catch (err) {
+    showCameraError(err);
+  }
+}
+
+async function saveCapturedImage() {
+  if (!capturedDataUrl) { showToast('No photo captured.', 'error'); return; }
+  var filename = camEls.filenameInput.value.trim();
+  if (!filename) { showToast('Please enter a filename.', 'error'); return; }
+  var destFolder = cameraSaveFolder;
+  if (!destFolder) { showToast('Please choose a save folder.', 'error'); return; }
+  camEls.btnSave.disabled = true;
+  camEls.btnSave.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Saving\u2026';
+  var result = await window.electronAPI.saveCapturedImage({
+    dataUrl: capturedDataUrl,
+    filename: filename,
+    destFolder: destFolder,
+  });
+  camEls.btnSave.disabled = false;
+  camEls.btnSave.textContent = '\uD83D\uDCBE Save Image';
+  if (!result.success) {
+    showToast('Save failed: ' + result.error, 'error');
+    return;
+  }
+  showToast('Image saved: ' + result.savedName, 'success');
+  closeCamera();
+  if (state.currentFolder && destFolder === state.currentFolder) {
+    await scanFiles();
+  }
+  await refreshDashboard();
+}
+
+async function cameraBrowseFolder() {
+  var result = await window.electronAPI.selectFolder();
+  if (!result.canceled) {
+    cameraSaveFolder = result.folderPath;
+    camEls.saveFolder.textContent = result.folderPath;
+  }
+}
+
+$('btn-camera-hero').addEventListener('click', openCamera);
+camEls.btnCapture.addEventListener('click', capturePhoto);
+camEls.btnRetake.addEventListener('click', retakePhoto);
+camEls.btnSave.addEventListener('click', saveCapturedImage);
+camEls.btnCancel.addEventListener('click', closeCamera);
+camEls.btnClose.addEventListener('click', closeCamera);
+camEls.btnChooseFolder.addEventListener('click', cameraBrowseFolder);
+camEls.btnRetry.addEventListener('click', async function() {
+  camEls.errorState.style.display = 'none';
+  camEls.previewArea.style.display = 'flex';
+  camEls.btnCapture.style.display = '';
+  await openCamera();
+});
+camEls.formatSelect.addEventListener('change', function() {
+  var ext = camEls.formatSelect.value === 'image/png' ? '.png' : '.jpg';
+  var fname = camEls.filenameInput.value;
+  fname = fname.replace(/\.\w+$/, ext);
+  camEls.filenameInput.value = fname;
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
