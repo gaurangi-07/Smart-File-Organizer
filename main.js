@@ -270,6 +270,64 @@ ipcMain.handle('clear-logs', () => {
   return { success: true };
 });
 
+// Save a captured image (from camera) to a folder
+ipcMain.handle('save-captured-image', async (event, { dataUrl, filename, destFolder }) => {
+  // Validate inputs
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+    return { success: false, error: 'Invalid image data.' };
+  }
+  if (!isValidPath(destFolder)) {
+    return { success: false, error: 'Invalid destination folder.' };
+  }
+  if (typeof filename !== 'string' || filename.trim() === '') {
+    return { success: false, error: 'Invalid filename.' };
+  }
+
+  // Sanitize filename — remove dangerous characters
+  const sanitized = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
+  if (!sanitized) return { success: false, error: 'Filename contains only invalid characters.' };
+
+  try {
+    // Ensure destination folder exists
+    await fs.promises.mkdir(destFolder, { recursive: true });
+
+    // Generate a unique filename to prevent overwriting
+    const ext = path.extname(sanitized) || '.jpg';
+    const base = path.basename(sanitized, ext);
+    let finalName = sanitized;
+    let finalPath = path.join(destFolder, finalName);
+    let counter = 1;
+    while (fs.existsSync(finalPath)) {
+      finalName = `${base} (${counter})${ext}`;
+      finalPath = path.join(destFolder, finalName);
+      counter++;
+    }
+
+    // Extract base64 data and write file
+    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    await fs.promises.writeFile(finalPath, buffer);
+
+    storage.appendLog({
+      type: 'scan',
+      message: `Camera capture saved: ${finalName} → ${destFolder}`,
+    });
+
+    const settings = storage.getSettings();
+    if (settings.notifications !== false) {
+      new Notification({
+        title: 'Smart File Organizer',
+        body: `Image saved: ${finalName}`,
+      }).show();
+    }
+
+    return { success: true, savedPath: finalPath, savedName: finalName };
+  } catch (err) {
+    storage.appendLog({ type: 'error', message: `Camera save failed: ${err.message}` });
+    return { success: false, error: err.message };
+  }
+});
+
 // Send notification (called from scan complete in renderer)
 ipcMain.handle('notify', (event, { title, body }) => {
   const settings = storage.getSettings();

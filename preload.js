@@ -30,4 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Notifications
   notify: (title, body) => ipcRenderer.invoke('notify', { title, body }),
+
+  // Camera capture
+  saveCapturedImage: (data) => ipcRenderer.invoke('save-captured-image', data),
 });
