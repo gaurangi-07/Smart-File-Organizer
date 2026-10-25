@@ -33,4 +33,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Camera capture
   saveCapturedImage: (data) => ipcRenderer.invoke('save-captured-image', data),
+
+  // Storage Analyzer (read-only)
+  storageSelectFolder: () => ipcRenderer.invoke('storage-select-folder'),
+  storageAnalyze: (folderPath) => ipcRenderer.invoke('storage-analyze', folderPath),
+  storageRevealFile: (filePath) => ipcRenderer.invoke('storage-reveal-file', filePath),
+  // Progress updates while scanning. Returns a function that removes the listener.
+  onStorageProgress: (callback) => {
+    const listener = (event, info) => callback(info);
+    ipcRenderer.on('storage-progress', listener);
+    return () => ipcRenderer.removeListener('storage-progress', listener);
+  },
 });
