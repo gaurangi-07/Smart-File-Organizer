@@ -172,6 +172,7 @@ const VIEW_TITLES = {
   archives: 'Archives',
   other: 'Other Files',
   duplicates: 'Duplicate Files',
+  'storage-analyzer': 'Storage Analyzer',
   'activity-log': 'Activity Log',
   settings: 'Settings',
 };
@@ -1218,6 +1219,282 @@ camEls.formatSelect.addEventListener('change', function() {
   var fname = camEls.filenameInput.value;
   fname = fname.replace(/\.\w+$/, ext);
   camEls.filenameInput.value = fname;
+});
+
+// ─── Storage Analyzer ─────────────────────────────────────────────────────────
+// Shows what is using space inside one folder. All scanning happens in the main
+// process; the renderer only receives a small summary object and draws it.
+
+const SA_COLORS = {
+  documents: '#3B82F6', images: '#10B981', videos: '#F59E0B',
+  audio: '#8B5CF6', archives: '#EF4444', other: '#6B7280',
+};
+
+const saEls = {
+  btnSelect:     $('btn-sa-select'),
+  btnAnalyze:    $('btn-sa-analyze'),
+  folderPath:    $('sa-folder-path'),
+  empty:         $('sa-empty'),
+  loading:       $('sa-loading'),
+  loadingText:   $('sa-loading-text'),
+  loadingDetail: $('sa-loading-detail'),
+  message:       $('sa-message'),
+  messageIcon:   $('sa-message-icon'),
+  messageTitle:  $('sa-message-title'),
+  messageDesc:   $('sa-message-desc'),
+  results:       $('sa-results'),
+  scopeNote:     $('sa-scope-note'),
+  totalSize:     $('sa-total-size'),
+  totalFiles:    $('sa-total-files'),
+  totalFolders:  $('sa-total-folders'),
+  largestSize:   $('sa-largest-size'),
+  largestName:   $('sa-largest-name'),
+  categoryList:  $('sa-category-list'),
+  donut:         $('sa-donut'),
+  donutTotal:    $('sa-donut-total'),
+  legend:        $('sa-legend'),
+  folderRows:    $('sa-folder-rows'),
+  fileRows:      $('sa-file-rows'),
+};
+
+const saState = {
+  folder: null,    // folder chosen with the picker
+  result: null,    // last analysis result (for the folder in `analyzedFolder`)
+  analyzedFolder: null,
+  scanning: false,
+};
+
+function formatPercent(p) {
+  if (!p || p <= 0) return '0%';
+  if (p < 0.1) return '<0.1%';
+  return p.toFixed(1) + '%';
+}
+
+// Escape text for use inside an HTML attribute (title="...")
+function escapeAttr(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Show exactly one of: empty | loading | message | results
+function saShow(which) {
+  saEls.empty.style.display    = which === 'empty'   ? '' : 'none';
+  saEls.loading.style.display  = which === 'loading' ? '' : 'none';
+  saEls.message.style.display  = which === 'message' ? '' : 'none';
+  saEls.results.style.display  = which === 'results' ? '' : 'none';
+}
+
+function saShowMessage(icon, title, desc) {
+  saEls.messageIcon.textContent = icon;
+  saEls.messageTitle.textContent = title;
+  saEls.messageDesc.textContent = desc;
+  saShow('message');
+}
+
+function saUpdateButtons() {
+  saEls.btnSelect.disabled = saState.scanning;
+  saEls.btnAnalyze.disabled = saState.scanning || !saState.folder;
+  const hasResultsForFolder = saState.result && saState.analyzedFolder === saState.folder;
+  saEls.btnAnalyze.textContent = saState.scanning
+    ? '⏳ Analyzing…'
+    : (hasResultsForFolder ? '🔄 Rescan Folder' : '📊 Analyze Storage');
+}
+
+async function saSelectFolder() {
+  const result = await window.electronAPI.storageSelectFolder();
+  if (result.canceled) return;
+
+  saState.folder = result.folderPath;
+  saEls.folderPath.textContent = result.folderPath;
+  saEls.folderPath.title = result.folderPath;
+
+  // Old results belong to the previous folder, so hide them until the next scan
+  saState.result = null;
+  saState.analyzedFolder = null;
+  saEls.empty.querySelector('.empty-title').textContent = 'Ready to analyze';
+  saEls.empty.querySelector('.empty-desc').textContent = 'Click "Analyze Storage" to scan the selected folder.';
+  saShow('empty');
+  saUpdateButtons();
+}
+
+async function saAnalyze() {
+  if (!saState.folder || saState.scanning) return;
+
+  const folder = saState.folder;
+  saState.scanning = true;
+  saUpdateButtons();
+  saEls.loadingText.textContent = 'Scanning folder…';
+  saEls.loadingDetail.textContent = '';
+  saShow('loading');
+
+  // Live status while the main process is scanning
+  const stopListening = window.electronAPI.onStorageProgress((info) => {
+    saEls.loadingText.textContent =
+      `Scanning… ${info.files.toLocaleString()} files in ${info.folders.toLocaleString()} folders so far`;
+    saEls.loadingDetail.textContent = info.currentDir;
+  });
+
+  try {
+    const res = await window.electronAPI.storageAnalyze(folder);
+
+    if (!res.success) {
+      saState.result = null;
+      saShowMessage('❌', 'Analysis failed', res.error || 'Something went wrong while scanning the folder.');
+      showToast('Storage analysis failed: ' + (res.error || 'unknown error'), 'error');
+    } else if (res.result.totalFiles === 0) {
+      saState.result = null;
+      let desc = 'This folder does not contain any files, so there is nothing to analyze.';
+      if (res.result.skipped > 0) {
+        desc += ` (${res.result.skipped} item(s) could not be read.)`;
+      }
+      saShowMessage('📭', 'No files found', desc);
+      showToast('The selected folder has no files.', 'info');
+    } else {
+      saState.result = res.result;
+      saState.analyzedFolder = folder;
+      renderStorageResults(res.result);
+      saShow('results');
+      showToast(`Analyzed ${res.result.totalFiles.toLocaleString()} files (${formatBytes(res.result.totalSize)}).`, 'success');
+    }
+  } catch (err) {
+    saState.result = null;
+    saShowMessage('❌', 'Analysis failed', err.message || 'Unexpected error.');
+    showToast('Storage analysis failed.', 'error');
+  } finally {
+    stopListening();
+    saState.scanning = false;
+    saUpdateButtons();
+  }
+}
+
+function renderStorageResults(r) {
+  // Scope note + skipped warning
+  saEls.scopeNote.textContent =
+    `Storage used by files inside the selected folder (${r.rootPath}) — not your computer's total disk capacity.`;
+  const oldWarning = saEls.results.querySelector('.sa-warning-note');
+  if (oldWarning) oldWarning.remove();
+  if (r.skipped > 0) {
+    const warn = document.createElement('div');
+    warn.className = 'sa-warning-note';
+    warn.textContent = `${r.skipped} item(s) could not be read (permission denied or removed during the scan) and were skipped.`;
+    saEls.scopeNote.after(warn);
+  }
+
+  // A. Summary cards
+  saEls.totalSize.textContent    = formatBytes(r.totalSize);
+  saEls.totalFiles.textContent   = r.totalFiles.toLocaleString();
+  saEls.totalFolders.textContent = r.totalFolders.toLocaleString();
+  if (r.largestFile) {
+    saEls.largestSize.textContent = formatBytes(r.largestFile.size);
+    saEls.largestName.textContent = 'Largest: ' + r.largestFile.name;
+    saEls.largestName.title = r.largestFile.path;
+    saEls.largestName.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  } else {
+    saEls.largestSize.textContent = '—';
+    saEls.largestName.textContent = 'Largest File';
+    saEls.largestName.title = '';
+  }
+
+  renderStorageCategories(r);
+  renderStorageFolders(r);
+  renderStorageLargestFiles(r);
+}
+
+// B. Category list + E. Donut chart with legend (largest category first)
+function renderStorageCategories(r) {
+  const cats = [...r.categories].sort((a, b) => b.size - a.size);
+
+  saEls.categoryList.innerHTML = cats.map((c) => `
+    <div class="sa-cat-row">
+      <div class="sa-cat-top">
+        <div class="sa-cat-name">
+          <span class="sa-swatch" style="background:${SA_COLORS[c.category]}"></span>
+          ${escapeHtml(CAT_LABELS[c.category])}
+          <span class="sa-cat-count">${c.count.toLocaleString()} file${c.count === 1 ? '' : 's'}</span>
+        </div>
+        <div class="sa-cat-values"><strong>${formatBytes(c.size)}</strong> · ${formatPercent(c.percent)}</div>
+      </div>
+      <div class="chart-bar-bg">
+        <div class="chart-bar-fill ${c.category}" style="width:${Math.min(100, c.percent).toFixed(2)}%"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Donut: build a conic-gradient from the real percentages
+  let start = 0;
+  const stops = [];
+  cats.filter((c) => c.size > 0).forEach((c, i, list) => {
+    const end = i === list.length - 1 ? 100 : Math.min(100, start + c.percent);
+    stops.push(`${SA_COLORS[c.category]} ${start.toFixed(3)}% ${end.toFixed(3)}%`);
+    start = end;
+  });
+  saEls.donut.style.background = stops.length ? `conic-gradient(${stops.join(', ')})` : '';
+  saEls.donutTotal.textContent = formatBytes(r.totalSize);
+
+  saEls.legend.innerHTML = cats.map((c) => `
+    <div class="sa-legend-item" style="${c.size === 0 ? 'opacity:0.5' : ''}">
+      <span class="sa-swatch" style="background:${SA_COLORS[c.category]}"></span>
+      <span class="sa-legend-name">${escapeHtml(CAT_LABELS[c.category])}</span>
+      <span class="sa-legend-pct">${formatPercent(c.percent)}</span>
+    </div>
+  `).join('');
+}
+
+// C. Top folders table
+function renderStorageFolders(r) {
+  saEls.folderRows.innerHTML = r.folders.map((f) => `
+    <tr>
+      <td>
+        <div class="sa-folder-name" title="${escapeAttr(f.path)}">📁 ${escapeHtml(f.name)}</div>
+      </td>
+      <td class="sa-num">${f.files.toLocaleString()}</td>
+      <td class="sa-num">${formatBytes(f.size)}</td>
+      <td>
+        <div class="sa-pct-cell">
+          <div class="sa-mini-bar"><div style="width:${Math.min(100, f.percent).toFixed(2)}%"></div></div>
+          <span>${formatPercent(f.percent)}</span>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// D. Largest files table (click a row to reveal the file)
+function renderStorageLargestFiles(r) {
+  saEls.fileRows.innerHTML = r.largestFiles.map((f, i) => `
+    <tr class="sa-file-row" data-index="${i}" tabindex="0" title="Show in file manager">
+      <td>
+        <div class="file-name-cell">
+          <span class="file-icon">${getFileIcon(f.category, f.ext)}</span>
+          <div class="file-name" title="${escapeAttr(f.name)}">${escapeHtml(f.name)}</div>
+        </div>
+      </td>
+      <td><span class="category-tag ${getCategoryTagClass(f.category)}">${escapeHtml(f.ext === 'none' ? 'No ext' : f.ext.toUpperCase())}</span></td>
+      <td class="sa-num">${formatBytes(f.size)}</td>
+      <td><div class="file-path" title="${escapeAttr(f.dir)}">${escapeHtml(f.folder)}</div></td>
+    </tr>
+  `).join('');
+}
+
+async function saRevealFile(index) {
+  const file = saState.result && saState.result.largestFiles[index];
+  if (!file) return;
+  const res = await window.electronAPI.storageRevealFile(file.path);
+  if (!res.success) showToast(res.error || 'Could not show the file.', 'error');
+}
+
+saEls.btnSelect.addEventListener('click', saSelectFolder);
+saEls.btnAnalyze.addEventListener('click', saAnalyze);
+
+saEls.fileRows.addEventListener('click', (e) => {
+  const row = e.target.closest('.sa-file-row');
+  if (row) saRevealFile(Number(row.dataset.index));
+});
+saEls.fileRows.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('.sa-file-row');
+  if (row) { e.preventDefault(); saRevealFile(Number(row.dataset.index)); }
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

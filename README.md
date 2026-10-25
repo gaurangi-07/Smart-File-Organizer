@@ -14,6 +14,7 @@ A polished Electron desktop application that helps you scan, categorize, organiz
 | ✨ File Organization | Preview proposed moves, confirm before executing |
 | 🔎 Duplicate Detection | MD5 hash-based content comparison, streaming for large files |
 | 📊 Storage Stats | File counts and sizes by category, visual bar chart |
+| 💽 Storage Analyzer | Read-only folder analysis: size by category, top folders, largest files, donut chart |
 | 🔍 Search & Filter | Case-insensitive search, category filter, multi-column sort |
 | 📜 Activity Log | Persisted between restarts, clearable with confirmation |
 | ⚙️ Settings | Default folder, notifications toggle, preview toggle |
@@ -61,6 +62,7 @@ file_organizer/
 │   ├── fileScanner.js       # Reads directory, returns file metadata + category
 │   ├── duplicateDetector.js # MD5 hashing with streams, groups duplicates
 │   ├── fileOrganizer.js     # Builds move plan, handles name collisions, executes
+│   ├── storageAnalyzer.js   # Read-only recursive size analysis (categories, folders, largest files)
 │   └── storage.js           # JSON persistence (settings + activity log)
 │
 ├── index.html           # Main window UI shell (includes camera modal)
@@ -117,6 +119,29 @@ The Camera & Scan feature lets you capture documents or images directly from the
 
 ---
 
+## Storage Analyzer
+
+The Storage Analyzer shows what is using space **inside a folder you pick**. It is read-only: it never moves, renames, or deletes anything.
+
+1. Click **💽 Storage Analyzer** in the sidebar (under *Tools*)
+2. Click **Select Folder** and choose a folder
+3. Click **Analyze Storage** (the button becomes **Rescan Folder** so you can refresh the results)
+
+What you get:
+- **Summary cards** — total size analyzed, number of files, number of sub-folders, largest file
+- **Storage by Category** — size and percentage for Documents, Images, Videos, Audio, Archives, Other
+- **Visual Breakdown** — donut chart with legend, drawn from the real scan data
+- **Top Folders by Size** — top 10 folders by the size of the files directly inside them
+- **Largest Files** — the 10 biggest files; click one to show it in your file manager
+
+Notes:
+- Results describe the selected folder only, not your computer's total disk capacity.
+- Symbolic links are ignored, and a file that is hard-linked is counted once.
+- Folders that cannot be read (permissions) or files removed during the scan are skipped and reported, not treated as errors.
+- Scanning runs in the main process (`modules/storageAnalyzer.js`). The renderer only gets a small summary through three narrow APIs: `storageSelectFolder`, `storageAnalyze`, and `storageRevealFile` (which only works for files inside the last analyzed folder).
+
+---
+
 ## File Categories
 
 | Category | Extensions |
@@ -148,6 +173,7 @@ Data is stored in Electron's `app.getPath('userData')` directory:
 - Only named, purpose-specific operations are exposed via `contextBridge`
 - Camera permission is explicitly granted via `session.setPermissionRequestHandler`
 - Shell operations use Electron's safe `shell.openPath` / `shell.showItemInFolder`
+- Storage Analyzer is read-only, validates its IPC inputs, and can only reveal files inside the folder it analyzed
 
 ---
 
