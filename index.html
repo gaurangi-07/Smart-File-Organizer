@@ -60,6 +60,9 @@
       <div class="nav-item" data-view="duplicates">
         <span class="nav-icon">🔍</span> Duplicate Files
       </div>
+      <div class="nav-item" data-view="storage-analyzer">
+        <span class="nav-icon">💽</span> Storage Analyzer
+      </div>
 
       <div class="nav-section-label">System</div>
       <div class="nav-item" data-view="activity-log">
@@ -255,6 +258,155 @@
         </div>
       </div>
       <!-- END DUPLICATES VIEW -->
+
+      <!-- ──────────────────────────────────── STORAGE ANALYZER VIEW -->
+      <div class="view" id="view-storage-analyzer">
+        <div class="sa-header">
+          <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--color-text);letter-spacing:-0.4px">💽 Storage Analyzer</h2>
+            <p style="font-size:13px;color:var(--color-text-muted);margin-top:4px">See what is using space inside a folder. Read-only — your files are never changed.</p>
+          </div>
+          <div class="sa-actions">
+            <button class="btn btn-secondary" id="btn-sa-select">📁 Select Folder</button>
+            <button class="btn btn-primary" id="btn-sa-analyze" disabled>📊 Analyze Storage</button>
+          </div>
+        </div>
+
+        <div class="sa-folder-bar">
+          <span class="sa-folder-label">Folder</span>
+          <span class="sa-folder-path" id="sa-folder-path">No folder selected</span>
+        </div>
+
+        <!-- Empty state (before a folder is chosen) -->
+        <div class="card" id="sa-empty">
+          <div class="empty-state">
+            <div class="empty-icon">💽</div>
+            <div class="empty-title">No folder selected</div>
+            <div class="empty-desc">Click "Select Folder", then "Analyze Storage" to see a breakdown of the space used inside it.</div>
+          </div>
+        </div>
+
+        <!-- Loading state -->
+        <div class="card" id="sa-loading" style="display:none">
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <div class="loading-text" id="sa-loading-text">Scanning…</div>
+            <div class="sa-loading-detail" id="sa-loading-detail"></div>
+          </div>
+        </div>
+
+        <!-- Error / no-files message -->
+        <div class="card" id="sa-message" style="display:none">
+          <div class="empty-state">
+            <div class="empty-icon" id="sa-message-icon">📭</div>
+            <div class="empty-title" id="sa-message-title"></div>
+            <div class="empty-desc" id="sa-message-desc"></div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="sa-results" style="display:none">
+          <div class="sa-scope-note" id="sa-scope-note"></div>
+
+          <!-- A. Summary cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon blue">💾</div>
+              <div class="stat-info">
+                <div class="stat-value" id="sa-total-size">0 B</div>
+                <div class="stat-label">Total Size Analyzed</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green">📄</div>
+              <div class="stat-info">
+                <div class="stat-value" id="sa-total-files">0</div>
+                <div class="stat-label">Total Files</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon orange">📁</div>
+              <div class="stat-info">
+                <div class="stat-value" id="sa-total-folders">0</div>
+                <div class="stat-label">Folders (sub-folders)</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon purple">🏆</div>
+              <div class="stat-info">
+                <div class="stat-value" id="sa-largest-size">—</div>
+                <div class="stat-label" id="sa-largest-name" title="">Largest File</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- B. Category list  +  E. Donut chart -->
+          <div class="grid-2" style="margin-bottom:22px">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">📊 Storage by Category</div>
+                  <div class="card-subtitle">Size and share of the scanned folder</div>
+                </div>
+              </div>
+              <div class="sa-category-list" id="sa-category-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">🍩 Visual Breakdown</div>
+                  <div class="card-subtitle">Storage used per category</div>
+                </div>
+              </div>
+              <div class="sa-donut-wrap">
+                <div class="sa-donut" id="sa-donut">
+                  <div class="sa-donut-hole">
+                    <div class="sa-donut-total" id="sa-donut-total">0 B</div>
+                    <div class="sa-donut-caption">in this folder</div>
+                  </div>
+                </div>
+                <div class="sa-legend" id="sa-legend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- C. Storage by folder -->
+          <div class="sa-section-title">📁 Top Folders by Size</div>
+          <div class="sa-section-note">Space used by the files directly inside each folder (not including its sub-folders).</div>
+          <div class="file-table-wrap" style="margin-bottom:22px">
+            <table class="file-table">
+              <thead>
+                <tr>
+                  <th>Folder Name</th>
+                  <th>Files</th>
+                  <th>Total Size</th>
+                  <th>% of Total</th>
+                </tr>
+              </thead>
+              <tbody id="sa-folder-rows"></tbody>
+            </table>
+          </div>
+
+          <!-- D. Largest files -->
+          <div class="sa-section-title">🏆 Largest Files</div>
+          <div class="sa-section-note">Click a file to show it in your file manager.</div>
+          <div class="file-table-wrap">
+            <table class="file-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Folder</th>
+                </tr>
+              </thead>
+              <tbody id="sa-file-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <!-- END STORAGE ANALYZER VIEW -->
 
       <!-- ──────────────────────────────────── ACTIVITY LOG VIEW -->
       <div class="view" id="view-activity-log">
